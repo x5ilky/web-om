@@ -4,5 +4,14 @@ canvas {
   top: 0px;
   width: 100vw;
   height: 100vh;
+  z-index: 0;
 }
 
+.beatmap-item {
+  color: white;
+}
+
+#app {
+  z-index: 1000;
+  position: absolute;
+}

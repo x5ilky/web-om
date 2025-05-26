@@ -38,19 +38,23 @@ export type OsuFile = {
 }
 export type Beatmaps = {
     files: OsuFile[],
-    resources: Map<string, Uint8Array>
+    resources: Map<string, Uint8Array>,
+    name: string
 };
 
 export class OsuParser {
     blob: Blob;
-    constructor(blob: Blob) {
+    filename: string;
+    constructor(blob: Blob, filename: string) {
         this.blob = blob;    
+        this.filename = filename;
     }
     
     async parse() {
         const objs: Beatmaps = {
             files: [],
-            resources: new Map()
+            resources: new Map(),
+            name: this.filename.substring(0, this.filename.lastIndexOf('.')) || this.filename,
         };
         const zipFileReader = new zip.BlobReader(this.blob);
         // Creates a TextWriter object where the content of the first entry in the zip

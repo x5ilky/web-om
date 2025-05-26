@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/jquery": "^3.5.32",
     "typescript": "~5.8.3",
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "@zip.js/zip.js": "^2.7.62"
+    "@zip.js/zip.js": "^2.7.62",
+    "jquery": "^3.7.1"
   }
 }
