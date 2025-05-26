@@ -9,6 +9,13 @@ export const GameState = {
 } as const;
 export type GameState = (typeof GameState)[keyof typeof GameState];
 
+export type HitCircle = {
+    type: "normal",
+    lane: number,
+    time: number,
+    hit: boolean
+}
+
 export class Game {
     canvas: HTMLCanvasElement;
     context: CanvasRenderingContext2D;
@@ -18,7 +25,10 @@ export class Game {
     eventManager: EventManager<Game>;
 
     song: OsuFile;
+    notes: HitCircle[];
     beatmap: Beatmaps;
+
+    keymap: Map<string, boolean>;
 
     gameRenderer: GameRenderer;
     
@@ -33,13 +43,25 @@ export class Game {
         this.canvas = document.createElement("canvas");
         this.beatmapSelectElement = $("#beatmapSelect");
         this.context = this.canvas.getContext("2d")!;
+        this.notes = [];
         this.beatmaps = new Map();
+        this.keymap = new Map();
         this.state = GameState.BeatmapSelect;
         this.updateChangeState();
         this.refreshCanvas();
         window.addEventListener("resize", () => {
             this.refreshCanvas();
         })
+        document.addEventListener("keypress", ev => {
+            this.onClick(ev.key);
+        })
+        document.addEventListener("keydown", ev => {
+            this.keyDown(ev.key);
+        })
+        document.addEventListener("keyup", ev => {
+            this.keyUp(ev.key);
+        })
+
         setInterval(() => {
             this.update();
             this.eventManager.update();
@@ -85,6 +107,63 @@ export class Game {
 
     }
     
+    onClick(key: string) {
+        if (this.state === GameState.Game) {
+            const keyToL = {
+                "d": 0,
+                "f": 1,
+                "j": 2,
+                "k": 3,
+            };
+            if (key in keyToL) this.clickLane(keyToL[key as keyof typeof keyToL]); 
+        }
+    }
+    
+    clickLane(lane: number) {
+        const firstN = this.notes.find(a => !a.hit && a.lane === lane);
+        if (firstN) {
+            const td = Math.abs(firstN.time - (performance.now() - this.gameRenderer.mapStartTime));
+            
+            let score = 0;
+            if (td <= 16) {
+                score = 320; 
+                this.gameRenderer.marvelous++;
+                firstN.hit = true;
+            } else if (td <= 64 - 3 * this.gameRenderer.od) {
+                score = 300
+                this.gameRenderer.perfect++;
+                firstN.hit = true;
+            } else if (td <= 97 - 3 * this.gameRenderer.od) {
+                score = 200
+                this.gameRenderer.great++;
+                firstN.hit = true;
+            } else if (td <= 127 - 3 * this.gameRenderer.od) {
+                score = 100
+                this.gameRenderer.good++;
+                firstN.hit = true;
+            } else if (td <= 151 - 3 * this.gameRenderer.od) {
+                score = 50
+                this.gameRenderer.ok++;
+            } else {
+                // miss
+                this.gameRenderer.miss++;
+            }
+            this.eventManager.addEvent((dt, p) => {
+                if (dt < 100) {
+                    p.context.fillStyle = "white";
+                    p.context.font = "48px";
+                    p.context.fillText(score.toString(), 0, p.context.canvas.height / 2);
+                } 
+            }, 200)
+        }
+    }
+    keyDown(key: string) {
+        this.keymap.set(key, true)
+    }
+    keyUp(key: string) {
+        this.keymap.set(key, false)
+    }
+
     async loadOSZ(bytes: Blob, filename: string) {
         const parser = new OsuParser(bytes, filename);
         const obj = await parser.parse();
@@ -143,6 +222,15 @@ export class Game {
         this.state = GameState.Game;
         this.beatmap = set;
         this.song = file;
+        this.notes = [];
+        file.HitObjects.forEach(a => {
+            this.notes.push({
+                type: "normal",
+                hit: false,
+                lane: Math.floor(a.x * 4 / 512),
+                time: a.time,
+            });
+        });
         this.gameRenderer.startMap();
 
         this.updateChangeState();
