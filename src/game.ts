@@ -25,6 +25,18 @@ export class Game {
     eventManager: EventManager<Game>;
     audio: AudioBufferSourceNode | null = null;
 
+    skin: {
+        circleR: number;
+        circleG: number;
+        circleB: number;
+        outlineR: number;
+        outlineG: number;
+        outlineB: number;
+        scrollSpeed: number;
+        circleSize: number;
+        hitLocation: number;
+    };
+
     song: OsuFile;
     notes: HitCircle[];
     beatmap: Beatmaps;
@@ -32,11 +44,25 @@ export class Game {
     keymap: Map<string, boolean>;
 
     gameRenderer: GameRenderer;
+
+    keybinds: string[];
     
     beatmapSelectElement: JQuery<HTMLDivElement>;
 
     constructor() {
         this.scale = 2;
+
+        this.skin = {
+            circleR: 176,
+            circleG: 252,
+            circleB: 194,
+            outlineR: 255,
+            outlineG: 255,
+            outlineB: 255,
+            scrollSpeed: 6.0,
+            circleSize: 240,
+            hitLocation: 340,
+        }
         this.eventManager = new EventManager<Game>(this);
         this.gameRenderer = new GameRenderer(this);
         this.song = null as unknown as OsuFile;
@@ -44,6 +70,7 @@ export class Game {
         this.canvas = document.createElement("canvas");
         this.beatmapSelectElement = $("#beatmapSelect");
         this.context = this.canvas.getContext("2d")!;
+        this.keybinds = ["d", "f", "j", "k"]
         this.notes = [];
         this.beatmaps = new Map();
         this.keymap = new Map();
@@ -67,6 +94,65 @@ export class Game {
             this.update();
             this.eventManager.update();
         }, 0);
+        setInterval(() => {
+            localStorage.setItem("config", JSON.stringify({
+                skin: this.skin,
+                keybinds: this.keybinds
+            }));
+        }, 100);
+
+        this.tryLoadConfig();
+        this.setupInputs();
+    }
+
+    tryLoadConfig() {
+        const p = localStorage.getItem("config");
+        if (p) {
+            const s = JSON.parse(p);
+            console.log(s)
+            if (s?.skin?.circleR) this.skin.circleR = s.skin.circleR;
+            if (s?.skin?.circleG) this.skin.circleG = s.skin.circleG;
+            if (s?.skin?.circleB) this.skin.circleB = s.skin.circleB;
+            if (s?.skin?.outlineR) this.skin.outlineR = s.skin.outlineR;
+            if (s?.skin?.outlineG) this.skin.outlineG = s.skin.outlineG;
+            if (s?.skin?.outlineB) this.skin.outlineB = s.skin.outlineB;
+            if (s?.skin?.scrollSpeed) this.skin.scrollSpeed = s.skin.scrollSpeed;
+            if (s?.skin?.circleSize) this.skin.circleSize = s.skin.circleSize;
+            if (s?.skin?.hitLocation) this.skin.hitLocation = s.skin.hitLocation;
+            if (s?.keybinds) this.keybinds = s.keybinds;
+        }
+    }
+    setupInputs() {
+        $("#scrollspeed").val(this.skin.scrollSpeed).on("input", () => {
+            this.skin.scrollSpeed = $("#scrollspeed").val() as number;
+        })
+        $("#circlesize").val(this.skin.circleSize).on("input", () => {
+            this.skin.circleSize = $("#circlesize").val() as number;
+        })
+        $("#lineheight").val(this.skin.hitLocation).on("input", () => {
+            this.skin.hitLocation = $("#lineheight").val() as number;
+        })
+        $("#lane1key").val(this.keybinds[0]).on("input", () => {
+            this.keybinds[0] = $("#lane1key").val() as string;
+        })
+        $("#lane2key").val(this.keybinds[1]).on("input", () => {
+            this.keybinds[1] = $("#lane2key").val() as string;
+        })
+        $("#lane3key").val(this.keybinds[2]).on("input", () => {
+            this.keybinds[2] = $("#lane3key").val() as string;
+        })
+        $("#lane4key").val(this.keybinds[3]).on("input", () => {
+            this.keybinds[3] = $("#lane4key").val() as string;
+        })
+        $("#circleR").val(this.skin.circleR).on("input", () => { this.skin.circleR = $("#circleR").val() as number; })
+        $("#circleG").val(this.skin.circleG).on("input", () => { this.skin.circleG = $("#circleG").val() as number; })
+        $("#circleB").val(this.skin.circleB).on("input", () => { this.skin.circleB = $("#circleB").val() as number; })
+        $("#outlineR").val(this.skin.outlineR).on("input", () => { this.skin.outlineR = $("#outlineR").val() as number; })
+        $("#outlineG").val(this.skin.outlineG).on("input", () => { this.skin.outlineG = $("#outlineG").val() as number; })
+        $("#outlineB").val(this.skin.outlineB).on("input", () => { this.skin.outlineB = $("#outlineB").val() as number; })
+        // $("#y").val(x).on("input", () => { x = $("#y").val() as string; })
+        // $("#y").val(x).on("input", () => { x = $("#y").val() as string; })
+        // $("#y").val(x).on("input", () => { x = $("#y").val() as string; })
     }
     
     refreshCanvas() {
@@ -110,13 +196,7 @@ export class Game {
     
     onClick(key: string) {
         if (this.state === GameState.Game) {
-            const keyToL = {
-                "d": 0,
-                "f": 1,
-                "j": 2,
-                "k": 3,
-            };
-            if (key in keyToL) this.clickLane(keyToL[key as keyof typeof keyToL]); 
+            if (this.keybinds.includes(key)) this.clickLane(this.keybinds.findIndex(a => a === key)); 
         }
     }
     
@@ -166,19 +246,23 @@ export class Game {
         this.keymap.set(key, false)
     }
     async playAudioFromBytes(byteArray: Uint8Array) {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const aCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
         // Convert Uint8Array to ArrayBuffer
         const arrayBuffer = byteArray.buffer;
 
         try {
             // Decode the audio data
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            const audioBuffer = await aCtx.decodeAudioData(arrayBuffer);
 
             // Create a buffer source
-            const source = audioContext.createBufferSource();
+            const gainNode = aCtx.createGain()
+            gainNode.gain.value = 0.1 // 10 %
+            gainNode.connect(aCtx.destination)
+            const source = aCtx.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
+            // now instead of connecting to aCtx.destination, connect to the gainNode
+            source.connect(gainNode)
             return source;
         } catch (e) {
             console.error("Error decoding audio data:", e);

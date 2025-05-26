@@ -4,7 +4,6 @@ export class GameRenderer {
     parent: Game;
     opacity = 1.0;
     mapStartTime = 0;
-    scrollSpeed = 6.0;
     od = 7;
 
     marvelous = 0;
@@ -15,8 +14,6 @@ export class GameRenderer {
     miss = 0;
     lastDT = 0xffffffff;
 
-    circleSize = 240;
-    hitLocation = 340;
 
     constructor(parent: Game) {
         this.parent = parent;
@@ -36,21 +33,20 @@ export class GameRenderer {
         for (const circle of this.parent.notes) {
             if (circle.hit) continue;
             const path = new Path2D();
-            path.arc(this.laneToX(circle.lane), ctx.canvas.height - ((circle.time - t) * this.scrollSpeed + this.hitLocation), this.circleSize, 0, 360);
-            ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+            path.arc(this.laneToX(circle.lane), ctx.canvas.height - ((circle.time - t) * this.parent.skin.scrollSpeed + this.parent.skin.hitLocation), this.parent.skin.circleSize, 0, 360);
+            ctx.fillStyle = `rgba(${this.parent.skin.circleR}, ${this.parent.skin.circleG}, ${this.parent.skin.circleB}, ${this.opacity})`;
             ctx.fill(path);
         }
         
-        const iToK = ["d", "f", "j", "k"];
         for (let i = 0; i < 4; i++) {
             const path = new Path2D();
-            path.arc(this.laneToX(i), ctx.canvas.height - this.hitLocation, this.circleSize, 0, 360);
+            path.arc(this.laneToX(i), ctx.canvas.height - this.parent.skin.hitLocation, this.parent.skin.circleSize, 0, 360);
             
-            if (this.parent.keymap.get(iToK[i]) ?? false) {
-                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+            if (this.parent.keymap.get(this.parent.keybinds[i]) ?? false) {
+                ctx.fillStyle = `rgba(${this.parent.skin.outlineR}, ${this.parent.skin.outlineG}, ${this.parent.skin.outlineB}, ${this.opacity})`;
                 ctx.fill(path);
             } else {
-                ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.strokeStyle = `rgba(${this.parent.skin.outlineR}, ${this.parent.skin.outlineG}, ${this.parent.skin.outlineB}, ${this.opacity})`;
                 ctx.stroke(path);
             }
             
@@ -93,6 +89,6 @@ export class GameRenderer {
     }
     
     laneToX(lane: number) {
-        return (lane - 1.5) * (this.circleSize * 2) + (this.parent.context.canvas.width / 2);
+        return (lane - 1.5) * (this.parent.skin.circleSize * 2) + (this.parent.context.canvas.width / 2);
     }
 }
