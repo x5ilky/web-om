@@ -5,7 +5,6 @@ export class GameRenderer {
     opacity = 1.0;
     mapStartTime = 0;
     scrollSpeed = 6.0;
-    hitLocation = 100;
     od = 7;
 
     marvelous = 0;
@@ -17,6 +16,7 @@ export class GameRenderer {
     lastDT = 0xffffffff;
 
     circleSize = 240;
+    hitLocation = 340;
 
     constructor(parent: Game) {
         this.parent = parent;
