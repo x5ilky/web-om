@@ -1,4 +1,5 @@
 import $ from "jquery";
+import * as idb from "idb";
 import { OsuParser, type Beatmaps, type OsuFile } from "./parser";
 import { EventManager } from "./em";
 import { GameRenderer } from "./gr";
@@ -84,7 +85,8 @@ export class Game {
             this.onClick(ev.key);
         })
         document.addEventListener("keydown", ev => {
-            this.keyDown(ev.key);
+            if (!ev.repeat)
+                this.keyDown(ev.key);
         })
         document.addEventListener("keyup", ev => {
             this.keyUp(ev.key);
@@ -103,6 +105,27 @@ export class Game {
 
         this.tryLoadConfig();
         this.setupInputs();
+        this.loadDB();
+    }
+
+    async loadDB() {
+        const db = await idb.openDB('OmBeatmap', 1, {
+            upgrade(db) {
+                db.createObjectStore('beatmaps');
+            }
+        });
+        this.beatmaps = new Map((await db.getAll("beatmaps")).map((a: Beatmaps) => [a.name, a]));
+        this.updateChangeState();
+    }
+    async saveDB() {
+        const db = await idb.openDB('OmBeatmap', 1, {
+            upgrade(db) {
+                db.createObjectStore('beatmaps');
+            }
+        });
+        for (const [k, v] of this.beatmaps) {
+            db.put("beatmaps", v, k);
+        }
     }
 
     tryLoadConfig() {
@@ -194,10 +217,7 @@ export class Game {
 
     }
     
-    onClick(key: string) {
-        if (this.state === GameState.Game) {
-            if (this.keybinds.includes(key)) this.clickLane(this.keybinds.findIndex(a => a === key)); 
-        }
+    onClick(_key: string) {
     }
     
     clickLane(lane: number) {
@@ -234,9 +254,11 @@ export class Game {
     }
     keyDown(key: string) {
         if (this.state === GameState.Game) {
+            if (this.keybinds.includes(key)) this.clickLane(this.keybinds.findIndex(a => a === key)); 
             if (key === "Escape") {
                 this.state = GameState.BeatmapSelect;
                 this.audio?.stop();
+                this.audio?.disconnect();
                 this.updateChangeState();
             }
         }
@@ -249,7 +271,7 @@ export class Game {
         const aCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
         // Convert Uint8Array to ArrayBuffer
-        const arrayBuffer = byteArray.buffer;
+        const arrayBuffer = byteArray.buffer.slice(0);
 
         try {
             // Decode the audio data
@@ -275,6 +297,7 @@ export class Game {
         const obj = await parser.parse();
         this.beatmaps.set(obj.files[0].Metadata.get("Title")!, obj);
         this.updateChangeState();
+        await this.saveDB();
     }
     
     update() {
@@ -290,6 +313,7 @@ export class Game {
 
         if (time > this.gameRenderer.lastDT + 4000) {
             this.audio?.stop();
+            this.audio?.disconnect();
             this.audio = null;
             this.state = GameState.BeatmapSelect;
             this.updateChangeState();
@@ -329,10 +353,13 @@ export class Game {
                         </summary>
                     </details>
                 </div>
-            `);
+            `).append($("<button>Remove</button>").on("click", () => {
+                this.beatmaps.delete(name);
+                this.updateChangeState();
+            }));
             beatmapset.files.forEach(a => {
                 elem.children("details").eq(0).append(
-                    $(`<div>${a.Metadata.get("Version")}</div>`).on("click", async () => {
+                    $(`<div><span>${a.Metadata.get("Version")}</span></div>`).on("click", async () => {
                         await this.startSong(beatmapset, a);
                     })
                 );
@@ -358,10 +385,10 @@ export class Game {
         const a = this.beatmap.resources.get(file.General.get("AudioFilename")!)!;
         (async () => {
             this.audio = await this.playAudioFromBytes(a)
-            this.audio.start(3);
+            this.audio.start(parseFloat(file.General.get("AudioLeadIn")!) / 1000);
+            this.updateChangeState();
             this.gameRenderer.startMap();
 
-            this.updateChangeState();
         })();
     }
 }

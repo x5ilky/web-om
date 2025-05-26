@@ -7,6 +7,9 @@ canvas {
   z-index: 0;
 }
 
+#beatmapSelect {
+  font-size: 1.5rem;
+}
 .beatmap-item {
   color: white;
 }

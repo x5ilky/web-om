@@ -1,3 +1,4 @@
+import $ from "jquery"
 import type { Game } from "./game";
 
 export class GameRenderer {
@@ -14,15 +15,28 @@ export class GameRenderer {
     miss = 0;
     lastDT = 0xffffffff;
 
+    marvelousTexture = $("<img>").attr("src", "./mania-hit300g.png")[0] as HTMLImageElement;
+    perfectTexture = $("<img>").attr("src", "./mania-hit300.png")[0] as HTMLImageElement;
+    greatTexture = $("<img>").attr("src", "./mania-hit200.png")[0] as HTMLImageElement;
+    goodTexture = $("<img>").attr("src", "./mania-hit100.png")[0] as HTMLImageElement;
+    okTexture = $("<img>").attr("src", "./mania-hit50.png")[0] as HTMLImageElement;
+    missTexture = $("<img>").attr("src", "./mania-hit0.png")[0] as HTMLImageElement;
 
     constructor(parent: Game) {
         this.parent = parent;
+
+
     }
     
     startMap() {
-        this.mapStartTime = performance.now() + 3000;
+        this.marvelous = 0;
+        this.perfect = 0;
+        this.great = 0;
+        this.good = 0;
+        this.ok = 0;
+        this.miss = 0;
+        this.mapStartTime = performance.now() + parseFloat(this.parent.song.General.get("AudioLeadIn")!);
         this.lastDT = this.parent.notes.slice(-1)[0].time;
-
     }
     
     draw() {
@@ -73,18 +87,20 @@ export class GameRenderer {
 
     queueHitMarker(score: number) {
         this.parent.eventManager.addEvent((dt, p) => {
-            const string = score !== 0 ? score.toString() : "MISS";
-            if (dt < 100) {
-                p.context.fillStyle = "white";
-                p.context.font = "48px";
-                p.context.textAlign = "center";
-                p.context.fillText(string, p.context.canvas.width / 2, p.context.canvas.height / 2);
-            } else {
-                p.context.fillStyle = `rgba(255, 255, 255, ${(dt - 100) / 100})`;
-                p.context.font = "48px";
-                p.context.textAlign = "center";
-                p.context.fillText(string, p.context.canvas.width / 2, p.context.canvas.height / 2);
-            } 
+            console.log(score)
+            const texture = (() => {
+                switch (score) {
+                    case 320: return this.marvelousTexture;
+                    case 300: return this.perfectTexture;
+                    case 200: return this.greatTexture;
+                    case 100: return this.goodTexture;
+                    case  50: return this.okTexture;
+                    case   0: return this.missTexture;
+                    default : return this.missTexture;
+                }
+            })();
+
+            p.context.drawImage(texture, p.context.canvas.width / 2 - texture.width / 2, p.context.canvas.height / 2 - texture.height / 2);
         }, 200)
     }
     
