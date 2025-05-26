@@ -37,10 +37,8 @@ export type OsuFile = {
     }[],
 }
 export type Beatmaps = {
-    files: {
-        file: OsuFile,
-        audioReference: Uint8Array
-    }[]
+    files: OsuFile[],
+    resources: Map<string, Uint8Array>
 };
 
 export class OsuParser {
@@ -51,7 +49,8 @@ export class OsuParser {
     
     async parse() {
         const objs: Beatmaps = {
-            files: []
+            files: [],
+            resources: new Map()
         };
         const zipFileReader = new zip.BlobReader(this.blob);
         // Creates a TextWriter object where the content of the first entry in the zip
@@ -67,19 +66,18 @@ export class OsuParser {
 
         // Displays "Hello world!".
         for (const [name, entry] of entries) {
-            if (!name.endsWith(".osu")) continue;
-            const textWriter = new zip.TextWriter();
-            const uint8arrayWriter = new zip.Uint8ArrayWriter();
-            console.log(`Processing ${name}`)
-            const contents = await entry.getData!(textWriter);
-            const file = this.parseOsuFile(contents);
-            const audioReferenceEntry = entries.get(file.General.get("AudioFilename")!);
-            const audioReference = await audioReferenceEntry?.getData!(uint8arrayWriter);
-            if (audioReference === undefined) throw new Error("Could not find audio for beatmap")
-            objs.files.push({
-                file,
-                audioReference
-            });
+            if (name.endsWith(".osu")) {
+                const textWriter = new zip.TextWriter();
+                console.log(`Processing ${name}`)
+                const contents = await entry.getData!(textWriter);
+                const file = this.parseOsuFile(contents);
+                objs.files.push(file);
+            } else {
+                const uint8writer = new zip.Uint8ArrayWriter();
+                console.log(`Processing ${name}`)
+                const contents = await entry.getData!(uint8writer);
+                objs.resources.set(name, contents);
+            }
         }
         return objs;
     }

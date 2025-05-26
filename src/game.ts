@@ -1,20 +1,33 @@
-import { OsuParser, type Beatmaps, type OsuFile } from "./parser";
+import { OsuParser, type Beatmaps } from "./parser";
+
+export const GameState = {
+    BeatmapSelect: 0
+} as const;
+export type GameState = (typeof GameState)[keyof typeof GameState];
 
 export class Game {
     canvas: HTMLCanvasElement;
     context: CanvasRenderingContext2D;
     scale: number;
     beatmaps: Map<string, Beatmaps>;
+    state: GameState;
+    
+    beatmapSelectElement: HTMLDivElement;
 
     constructor() {
         this.scale = 2;
         this.canvas = document.createElement("canvas");
+        this.beatmapSelectElement = document.querySelector("#beatmapSelect")!;
         this.context = this.canvas.getContext("2d")!;
         this.beatmaps = new Map();
+        this.state = GameState.BeatmapSelect;
         this.refreshCanvas();
         window.addEventListener("resize", () => {
             this.refreshCanvas();
         })
+        setInterval(() => {
+            this.update();
+        }, 0);
     }
     
     refreshCanvas() {
@@ -59,11 +72,27 @@ export class Game {
     async loadOSZ(bytes: Blob) {
         const parser = new OsuParser(bytes);
         const obj = await parser.parse();
-        console.log(obj)
+        this.beatmaps.set(obj.files[0].Metadata.get("Title")!, obj);
     }
     
     update() {
         this.context.fillStyle = "black";
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        if (this.state === GameState.BeatmapSelect) this.beatmapSelectUpdate();
+        else this.beatmapSelectElement.style.display = "none";
+    }
+
+    beatmapSelectUpdate() {
+        this.beatmapSelectElement.style.display = "block";
+        
+        this.beatmapSelectElement.innerHTML = "";
+
+        for (const [name, beatmapset] of this.beatmaps) {
+            const elem = document.createElement("div");
+            elem.innerHTML = `
+                <div></div>
+            `
+        }
     }
 }
