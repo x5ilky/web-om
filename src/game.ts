@@ -225,7 +225,7 @@ export class Game {
         if (this.state === GameState.BeatmapSelect) this.beatmapSelectUpdate();
         else this.beatmapSelectElement.hide();
         if (this.state === GameState.Game) {
-            this.eventManager.addEvent((dt, p) => {
+            this.eventManager.addEvent((dt, _p) => {
                 this.gameRenderer.opacity = dt / 200;
             }, 200)
         }
