@@ -25,7 +25,7 @@ export class EventManager<T> {
         const toRemove: EventManager<T>["events"] = [];
         for (const event of this.events) {
             if (event.duration + event.startTime < time) toRemove.push(event);
-            event.event(time - event.duration, this.parent);
+            event.event(time - event.startTime, this.parent);
         }
         
         this.events = this.events.filter(a => !toRemove.includes(a));

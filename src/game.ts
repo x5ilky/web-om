@@ -23,6 +23,7 @@ export class Game {
     beatmaps: Map<string, Beatmaps>;
     state: GameState;
     eventManager: EventManager<Game>;
+    audio: AudioBufferSourceNode | null = null;
 
     song: OsuFile;
     notes: HitCircle[];
@@ -148,20 +149,41 @@ export class Game {
                 // miss
                 this.gameRenderer.miss++;
             }
-            this.eventManager.addEvent((dt, p) => {
-                if (dt < 100) {
-                    p.context.fillStyle = "white";
-                    p.context.font = "48px";
-                    p.context.fillText(score.toString(), 0, p.context.canvas.height / 2);
-                } 
-            }, 200)
+            this.gameRenderer.queueHitMarker(score)
         }
     }
     keyDown(key: string) {
+        if (this.state === GameState.Game) {
+            if (key === "Escape") {
+                this.state = GameState.BeatmapSelect;
+                this.audio?.stop();
+                this.updateChangeState();
+            }
+        }
         this.keymap.set(key, true)
     }
     keyUp(key: string) {
         this.keymap.set(key, false)
+    }
+    async playAudioFromBytes(byteArray: Uint8Array) {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        // Convert Uint8Array to ArrayBuffer
+        const arrayBuffer = byteArray.buffer;
+
+        try {
+            // Decode the audio data
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            // Create a buffer source
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            return source;
+        } catch (e) {
+            console.error("Error decoding audio data:", e);
+            throw new Error();
+        }
     }
 
     async loadOSZ(bytes: Blob, filename: string) {
@@ -176,9 +198,26 @@ export class Game {
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.state === GameState.Game) this.updateGame();
+        this.eventManager.update();
     }
 
     updateGame() {
+        const time = performance.now() - this.gameRenderer.mapStartTime;
+
+        if (time > this.gameRenderer.lastDT + 4000) {
+            this.audio?.stop();
+            this.audio = null;
+            this.state = GameState.BeatmapSelect;
+            this.updateChangeState();
+            return;
+        }
+
+        for (const circle of this.notes) {
+            if (!circle.hit && circle.time - time < -(151 - 3 * this.gameRenderer.od)) {
+                circle.hit = true;
+                this.gameRenderer.miss++;
+            }
+        }
         this.gameRenderer.draw();
     }
 
@@ -209,8 +248,8 @@ export class Game {
             `);
             beatmapset.files.forEach(a => {
                 elem.children("details").eq(0).append(
-                    $(`<div>${a.Metadata.get("Version")}</div>`).on("click", () => {
-                        this.startSong(beatmapset, a);
+                    $(`<div>${a.Metadata.get("Version")}</div>`).on("click", async () => {
+                        await this.startSong(beatmapset, a);
                     })
                 );
             })
@@ -221,6 +260,7 @@ export class Game {
     startSong(set: Beatmaps, file: OsuFile) {
         this.state = GameState.Game;
         this.beatmap = set;
+        this.gameRenderer.mapStartTime = 0xfffffffffff;
         this.song = file;
         this.notes = [];
         file.HitObjects.forEach(a => {
@@ -231,8 +271,13 @@ export class Game {
                 time: a.time,
             });
         });
-        this.gameRenderer.startMap();
+        const a = this.beatmap.resources.get(file.General.get("AudioFilename")!)!;
+        (async () => {
+            this.audio = await this.playAudioFromBytes(a)
+            this.audio.start(3);
+            this.gameRenderer.startMap();
 
-        this.updateChangeState();
+            this.updateChangeState();
+        })();
     }
 }
