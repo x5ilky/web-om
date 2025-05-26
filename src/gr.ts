@@ -45,11 +45,29 @@ export class GameRenderer {
         
         
         for (const circle of this.parent.notes) {
-            if (circle.hit) continue;
-            const path = new Path2D();
-            path.arc(this.laneToX(circle.lane), ctx.canvas.height - ((circle.time - t) * this.parent.skin.scrollSpeed + this.parent.skin.hitLocation), this.parent.skin.circleSize, 0, 360);
-            ctx.fillStyle = `rgba(${this.parent.skin.circleR}, ${this.parent.skin.circleG}, ${this.parent.skin.circleB}, ${this.opacity})`;
-            ctx.fill(path);
+            const y = this.timeToY(circle.time, t);
+            if (y < -this.parent.skin.circleSize) continue;
+            const x = this.laneToX(circle.lane);
+            if (circle.type === "slider") {
+                const ny = this.timeToY(circle.time + circle.duration, t);
+                const radius = this.parent.skin.circleSize;
+                ctx.beginPath();
+                ctx.moveTo(x - radius, y);
+                ctx.lineTo(x - radius, ny);
+                ctx.arc(x, ny, radius, Math.PI, 0, false); // bottom semicircle
+                ctx.lineTo(x + radius, y);
+                ctx.arc(x, y, radius, 0, Math.PI, false); // top semicircle
+                ctx.closePath();
+                ctx.fillStyle = `rgba(${this.parent.skin.circleR}, ${this.parent.skin.circleG}, ${this.parent.skin.circleB}, ${this.opacity * (circle.hit ? 0.6 : 1.0)})`;
+                ctx.fill()
+            } else {
+                if (circle.hit) continue;
+                const path = new Path2D();
+                path.arc(
+                    this.laneToX(circle.lane), this.timeToY(circle.time, t), this.parent.skin.circleSize, 0, 360);
+                ctx.fillStyle = `rgba(${this.parent.skin.circleR}, ${this.parent.skin.circleG}, ${this.parent.skin.circleB}, ${this.opacity})`;
+                ctx.fill(path);
+            }
         }
         
         for (let i = 0; i < 4; i++) {
@@ -85,9 +103,12 @@ export class GameRenderer {
         );
     }
 
+    timeToY(ctime: number, t: number) {
+        return this.parent.context.canvas.height - ((ctime - t) * this.parent.skin.scrollSpeed + this.parent.skin.hitLocation)
+    }
+
     queueHitMarker(score: number) {
         this.parent.eventManager.addEvent((dt, p) => {
-            console.log(score)
             const texture = (() => {
                 switch (score) {
                     case 320: return this.marvelousTexture;

@@ -115,13 +115,14 @@ export class OsuParser {
                     (obj as any)[name].set(k, v);
                 }
                 if (name === "HitObjects") {
-                    const parts = ln.split(/,/g);
+                    const outer = ln.split(/:/g);
+                    const parts = outer[0].split(/,/g);
                     obj.HitObjects.push({
                         x: parseInt(parts[0]),
                         time: parseInt(parts[2]),
                         type: parseInt(parts[3]),
-                        objectParams: parts.slice(4, -1).map(parseInt),
-                        hitSample: parts.slice(-1)[0].split(":").filter(a => a).map(a => parseInt(a)),
+                        objectParams: parts.slice(4).filter(a => a).map(a => parseInt(a)),
+                        hitSample: outer.slice(1).filter(a => a).map(a => parseInt(a)),
                     })
                 }
             }

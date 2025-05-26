@@ -15,6 +15,12 @@ export type HitCircle = {
     lane: number,
     time: number,
     hit: boolean
+} | {
+    type: "slider",
+    lane: number,
+    time: number,
+    duration: number,
+    hit: boolean
 }
 
 export class Game {
@@ -132,7 +138,6 @@ export class Game {
         const p = localStorage.getItem("config");
         if (p) {
             const s = JSON.parse(p);
-            console.log(s)
             if (s?.skin?.circleR) this.skin.circleR = s.skin.circleR;
             if (s?.skin?.circleG) this.skin.circleG = s.skin.circleG;
             if (s?.skin?.circleB) this.skin.circleB = s.skin.circleB;
@@ -375,12 +380,23 @@ export class Game {
         this.song = file;
         this.notes = [];
         file.HitObjects.forEach(a => {
-            this.notes.push({
-                type: "normal",
-                hit: false,
-                lane: Math.floor(a.x * 4 / 512),
-                time: a.time,
-            });
+            if (a.type & 0b10000000) {
+                console.log(a)
+                this.notes.push({
+                    type: "slider",
+                    hit: false,
+                    lane: Math.floor(a.x * 4 / 512),
+                    duration: a.objectParams[1] - a.time,
+                    time: a.time,
+                });
+            } else {
+                this.notes.push({
+                    type: "normal",
+                    hit: false,
+                    lane: Math.floor(a.x * 4 / 512),
+                    time: a.time,
+                });
+            }
         });
         const a = this.beatmap.resources.get(file.General.get("AudioFilename")!)!;
         (async () => {
@@ -390,5 +406,6 @@ export class Game {
             this.gameRenderer.startMap();
 
         })();
+        console.log(this.notes);
     }
 }
